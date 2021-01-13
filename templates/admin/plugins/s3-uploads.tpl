@@ -58,19 +58,39 @@ export S3_UPLOADS_PATH="path"
 	<label for="aws-region">Region</label><br/>
 	<select id="aws-region" name="region" title="AWS Region" class="form-control">
 		<option value="">..</option>
-		<option value="us-east-1">Standard (us-east-1)</option>
-		<option value="us-west-1">N. California (us-west-1)</option>
-		<option value="us-west-2">Oregon (us-west-2)</option>
-		<option value="ca-central-1">Canada (ca-central-1)</option>
-		<option value="eu-west-1">Ireland (eu-west-1)</option>
-		<option value="eu-west-2">London (eu-west-2)</option>
-		<option value="eu-central-1">Frankfurt (eu-central-1)</option>
-		<option value="ap-northeast-1">Tokyo (ap-northeast-1)</option>
-		<option value="ap-northeast-2">Seoul (ap-northeast-2)</option>
-		<option value="ap-southeast-1">Singapore (ap-southeast-1)</option>
-		<option value="ap-southeast-2">Sydney (ap-southeast-2)</option>
-		<option value="ap-south-1">Mumbai (ap-south-1)</option>
-		<option value="sa-east-1">São Paulo (sa-east-1)</option>
+		<optgroup label="US">
+			<option value="us-east-1">Standard (us-east-1)</option>
+			<option value="us-east-2">Ohio (us-east-2)</option>
+			<option value="us-west-1">N. California (us-west-1)</option>
+			<option value="us-west-2">Oregon (us-west-2)</option>
+		</option>
+		<optgroup label="Africa">
+			<option value="af-south-1">Cape Town (af-south-1)</option>
+		</option>
+		<optgroup label="Asia Pacific">
+			<option value="ap-east-1">Hong Kong (ap-east-1)</option>
+			<option value="ap-south-1">Mumbai (ap-south-1)</option>
+			<option value="ap-northeast-2">Seoul (ap-northeast-2)</option>
+			<option value="ap-southeast-1">Singapore (ap-southeast-1)</option>
+			<option value="ap-northeast-1">Tokyo (ap-northeast-1)</option>
+		</option>
+		<optgroup label="Canada">
+			<option value="ca-central-1">Canada (ca-central-1)</option>
+		</option>
+		<optgroup label="Europe">
+			<option value="eu-central-1">Frankfurt (eu-central-1)</option>
+			<option value="eu-west-1">Ireland (eu-west-1)</option>
+			<option value="eu-west-2">London (eu-west-2)</option>
+			<option value="eu-south-1">Milan (eu-south-1)</option>
+			<option value="eu-west-3">Paris (eu-west-3)</option>
+			<option value="eu-north-1">Stockholm (eu-north-1)</option>
+		</option>
+		<optgroup label="Middle East">
+			<option value="me-south-1">Bahrain (me-south-1)</option>
+		</option>
+		<optgroup label="South America">
+			<option value="sa-east-1">São Paulo (sa-east-1)</option>
+		</option>
 	</select>
 	<br/>
 
