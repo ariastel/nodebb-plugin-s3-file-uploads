@@ -8,6 +8,7 @@ var AWS = require("aws-sdk"),
 	winston = require.main.require("winston"),
 	meta = require.main.require("./src/meta");
 
+
 /* Constants */
 var constants = Object.freeze({
 	name: 'S3 File Uploads',
@@ -82,11 +83,11 @@ Plugin.uploadImage = function (data, callback) {
 	var allowedMimeTypes = ['image/png', 'image/jpeg', 'image/gif'];
 
 	if (!path) {
-		return callback(new Error("invalid image path"));
+		return callback(new Error("Invalid image path"));
 	}
 
-	if (allowedMimeTypes.indexOf(mime.lookup(path)) === -1) {
-		return callback(new Error("invalid mime type"));
+	if (allowedMimeTypes.indexOf(mime.getType(path)) === -1) {
+		return callback(new Error("Invalid mime type"));
 	}
 
 	fs.readFile(path, function (err, buffer) {
@@ -99,11 +100,11 @@ Plugin.uploadFile = function (data, callback) {
 	var file = data.file;
 
 	if (!file) {
-		return callback(new Error("invalid file"));
+		return callback(new Error("Invalid file"));
 	}
 
 	if (!file.path) {
-		return callback(new Error("invalid file path"));
+		return callback(new Error("Invalid file path"));
 	}
 
 	checkMaximumSize(file.size);
@@ -205,7 +206,7 @@ function uploadToS3(filename, err, buffer, callback) {
 		Key: s3KeyPath + uuid() + path.extname(filename),
 		Body: buffer,
 		ContentLength: buffer.length,
-		ContentType: mime.lookup(filename)
+		ContentType: mime.getType(filename)
 	};
 
 	S3().putObject(params, function (err) {
