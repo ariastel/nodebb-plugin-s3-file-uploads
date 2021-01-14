@@ -4,7 +4,7 @@
   "description": "A plugin for NodeBB to take file uploads and store them on S3",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "eslint ."
   },
   "repository": {
     "type": "git",
@@ -35,5 +35,8 @@
     "aws-sdk": "^2.0.23",
     "mime": "^2.4.7",
     "uuid": "^1.4.1"
+  },
+  "devDependencies": {
+    "eslint": "^7.17.0"
   }
 }

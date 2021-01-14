@@ -1,4 +1,4 @@
-/* global define, $, app, socket */
+/* global define, $, app, socket, bootbox */
 define('admin/plugins/s3-file-uploads', ['settings'], function (Settings) {
 
   const ACP = {};

@@ -58,7 +58,7 @@ Plugin.addAdminNavigation = function (custom_header, callback) {
 
 Plugin.activate = function (data) {
 	if (data.id === `nodebb-plugin-${constants.codename}`) {
-		fetchSettings();
+		loadSettings();
 	}
 };
 
@@ -71,55 +71,60 @@ Plugin.deactivate = function (data) {
 Plugin.uploadImage = function (data, callback) {
 
 	var image = data.image;
-	if (!image) {
-		winston.error("Invalid image");
-		return callback(new Error("Invalid image"));
+	
+	try {
+		if (!image) {
+			throw new Error("Invalid image");
+		}
+
+		checkMaximumSize(image.size);
+
+		var path = image.url ? image.url : image.path;
+		if (!path) {
+			throw new Error("Invalid image path");
+		}
+
+		var allowedMimeTypes = ['image/png', 'image/jpeg', 'image/pjpeg', 'image/jpg', 'image/gif', 'image/svg+xml'];
+		if (allowedMimeTypes.indexOf(mime.getType(path)) === -1) {
+			throw new Error("Invalid mime type");
+		}
+
+		fs.readFile(path, function (err, buffer) {
+			uploadToS3(image.name, err, buffer, callback);
+		});
+	} catch (error) {
+		return callback(error);
 	}
-
-	checkMaximumSize(image.size);
-
-	var type = image.url ? "url" : "file";
-	var path = type === "file" ? image.path : image.url;
-	var allowedMimeTypes = ['image/png', 'image/jpeg', 'image/pjpeg', 'image/jpg', 'image/gif', 'image/svg+xml'];
-
-	if (!path) {
-		return callback(new Error("Invalid image path"));
-	}
-
-	if (allowedMimeTypes.indexOf(mime.getType(path)) === -1) {
-		return callback(new Error("Invalid mime type"));
-	}
-
-	fs.readFile(path, function (err, buffer) {
-		uploadToS3(image.name, err, buffer, callback);
-	});
 };
 
 Plugin.uploadFile = function (data, callback) {
 
 	var file = data.file;
 
-	if (!file) {
-		return callback(new Error("Invalid file"));
+	try {
+		if (!file) {
+			throw new Error("Invalid file");
+		}
+
+		if (!file.path) {
+			throw new Error("Invalid file path");
+		}
+
+		checkMaximumSize(file.size);
+
+		fs.readFile(file.path, function (err, buffer) {
+			uploadToS3(file.name, err, buffer, callback);
+		});
+	} catch (error) {
+		return callback(error);
 	}
-
-	if (!file.path) {
-		return callback(new Error("Invalid file path"));
-	}
-
-	checkMaximumSize(file.size);
-
-	fs.readFile(file.path, function (err, buffer) {
-		uploadToS3(file.name, err, buffer, callback);
-	});
 };
 // #endregion Plugin
 
 // #region Plugin Utils
 function checkMaximumSize(size) {
 	if (size > parseInt(meta.config.maximumFileSize, 10) * 1024) {
-		winston.error("error:file-too-big, " + meta.config.maximumFileSize);
-		return callback(new Error("[[error:file-too-big, " + meta.config.maximumFileSize + "]]"));
+		throw new Error("[[error:file-too-big, " + meta.config.maximumFileSize + "]]");
 	}
 }
 
@@ -154,9 +159,9 @@ function loadSettings(callback) {
 			});
 		}
 
-		console.log(Plugin.settings);
-
-		callback();
+		if (typeof callback === "function") {
+			callback();
+		}
 	});
 }
 
