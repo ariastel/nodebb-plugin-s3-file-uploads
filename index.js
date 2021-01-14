@@ -80,7 +80,7 @@ Plugin.uploadImage = function (data, callback) {
 
 	var type = image.url ? "url" : "file";
 	var path = type === "file" ? image.path : image.url;
-	var allowedMimeTypes = ['image/png', 'image/jpeg', 'image/gif'];
+	var allowedMimeTypes = ['image/png', 'image/jpeg', 'image/pjpeg', 'image/jpg', 'image/gif', 'image/svg+xml'];
 
 	if (!path) {
 		return callback(new Error("Invalid image path"));
