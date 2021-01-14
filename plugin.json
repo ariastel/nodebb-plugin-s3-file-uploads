@@ -1,20 +1,19 @@
 {
-    "id": "nodebb-plugin-s3-uploads-updated",
-    "name": "S3 Uploads Plugin",
-    "description": "A plugin for NodeBB to take file uploads and store them on S3 updated for 1.0",
-    "url": "https://github.com/LewisMcMahon/nodebb-plugin-s3-uploads",
+    "id": "nodebb-plugin-s3-file-uploads",
+    "name": "S3 File Uploads Plugin",
+    "description": "A plugin for NodeBB to take file uploads and store them on S3",
+    "url": "https://github.com/ariastel/nodebb-plugin-s3-file-uploads",
     "library": "./index.js",
-    "staticDirs": {
-        "s3": "public"
-    },
     "hooks": [
-        { "hook": "static:app.load", "method": "load"},
+        { "hook": "static:app.load", "method": "init"},
         { "hook": "action:plugin.activate", "method": "activate"},
         { "hook": "action:plugin.deactivate", "method": "deactivate"},
-
-        { "hook": "filter:admin.header.build", "method": "admin.menu"},
+        { "hook": "filter:admin.header.build", "method": "addAdminNavigation"},
         { "hook": "filter:uploadImage", "method": "uploadImage", "priority": 6 },
         { "hook": "filter:uploadFile", "method": "uploadFile", "priority": 6 }
     ],
-    "templates": "./templates"
+    "acpScripts": [
+        "static/lib/admin.js"
+    ],
+    "templates": "templates"
 }

@@ -1,7 +1,7 @@
 {
-  "name": "nodebb-plugin-s3-uploads-updated",
+  "name": "nodebb-plugin-s3-file-uploads",
   "version": "0.3.15",
-  "description": "A plugin for NodeBB to take file uploads and store them on S3 updated for 1.0",
+  "description": "A plugin for NodeBB to take file uploads and store them on S3",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

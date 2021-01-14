@@ -1,269 +1,101 @@
-var Package = require("./package.json");
+"use strict";
 
 var AWS = require("aws-sdk"),
 	mime = require("mime"),
 	uuid = require("uuid").v4,
 	fs = require("fs"),
-	request = require("request"),
 	path = require("path"),
-	winston = module.parent.require("winston"),
-	nconf = module.parent.require('nconf'),
-	gm = require("gm"),
-	im = gm.subClass({imageMagick: true}),
-	meta = module.parent.require("./meta"),
-	db = module.parent.require("./database");
+	winston = require.main.require("winston"),
+	meta = require.main.require("./src/meta");
 
-var plugin = {}
+/* Constants */
+var constants = Object.freeze({
+	name: 'S3 File Uploads',
+	codename: 's3-file-uploads',
+	admin: {
+		route: `/plugins/s3-file-uploads`,
+		icon: 'fa-envelope-o'
+	}
+});
 
-"use strict";
 
-var S3Conn = null;
-var settings = {
-	"accessKeyId": false,
-	"secretAccessKey": false,
-	"region": process.env.AWS_DEFAULT_REGION || "us-east-1",
-	"bucket": process.env.S3_UPLOADS_BUCKET || undefined,
-	"host": process.env.S3_UPLOADS_HOST || "s3.amazonaws.com",
-	"path": process.env.S3_UPLOADS_PATH || undefined
+// #region Plugin
+var Plugin = {
+	settings: {
+		"accessKeyId": process.env.AWS_ACCESS_KEY_ID || undefined,
+		"secretAccessKey": process.env.AWS_SECRET_ACCESS_KEY || undefined,
+		"region": process.env.AWS_DEFAULT_REGION || "us-east-1",
+		"bucket": process.env.S3_UPLOADS_BUCKET || undefined,
+		"host": process.env.S3_UPLOADS_HOST || "s3.amazonaws.com",
+		"path": process.env.S3_UPLOADS_PATH || undefined
+	},
+	s3conn: null
 };
 
-var accessKeyIdFromDb = false;
-var secretAccessKeyFromDb = false;
+Plugin.init = function (data, callback) {
 
-function fetchSettings(callback) {
-	db.getObjectFields(Package.name, Object.keys(settings), function (err, newSettings) {
-		if (err) {
-			winston.error(err.message);
-			if (typeof callback === "function") {
-				callback(err);
-			}
-			return;
-		}
+	function render(req, res) {
+		console.log(`admin/plugins/${constants.codename}`);
+		res.render(`admin/plugins/${constants.codename}`, {});
+	}
 
-		accessKeyIdFromDb = false;
-		secretAccessKeyFromDb = false;
+	data.router.get(`/admin/plugins/${constants.codename}`, data.middleware.applyCSRF, data.middleware.admin.buildHeader, render);
+	data.router.get(`/api/admin/plugins/${constants.codename}`, data.middleware.applyCSRF, render);
 
-		if (newSettings.accessKeyId) {
-			settings.accessKeyId = newSettings.accessKeyId;
-			accessKeyIdFromDb = true;
-		} else {
-			settings.accessKeyId = false;
-		}
+	loadSettings(callback);
+}
 
-		if (newSettings.secretAccessKey) {
-			settings.secretAccessKey = newSettings.secretAccessKey;
-			secretAccessKeyFromDb = false;
-		} else {
-			settings.secretAccessKey = false;
-		}
-
-		if (!newSettings.bucket) {
-			settings.bucket = process.env.S3_UPLOADS_BUCKET || "";
-		} else {
-			settings.bucket = newSettings.bucket;
-		}
-
-		if (!newSettings.host) {
-			settings.host = process.env.S3_UPLOADS_HOST || "";
-		} else {
-			settings.host = newSettings.host;
-		}
-
-		if (!newSettings.path) {
-			settings.path = process.env.S3_UPLOADS_PATH || "";
-		} else {
-			settings.path = newSettings.path;
-		}
-
-		if (!newSettings.region) {
-			settings.region = process.env.AWS_DEFAULT_REGION || "";
-		} else {
-			settings.region = newSettings.region;
-		}
-
-		if (settings.accessKeyId && settings.secretAccessKey) {
-			AWS.config.update({
-				accessKeyId: settings.accessKeyId,
-				secretAccessKey: settings.secretAccessKey
-			});
-		}
-
-		if (settings.region) {
-			AWS.config.update({
-				region: settings.region
-			});
-		}
-
-		if (typeof callback === "function") {
-			callback();
-		}
+Plugin.addAdminNavigation = function (custom_header, callback) {
+	custom_header.plugins.push({
+		"route": constants.admin.route,
+		"icon": constants.admin.icon,
+		"name": constants.name
 	});
-}
 
-function S3() {
-	if (!S3Conn) {
-		S3Conn = new AWS.S3();
-	}
+	callback(null, custom_header);
+};
 
-	return S3Conn;
-}
-
-function makeError(err) {
-	if (err instanceof Error) {
-		err.message = Package.name + " :: " + err.message;
-	} else {
-		err = new Error(Package.name + " :: " + err);
-	}
-
-	winston.error(err.message);
-	return err;
-}
-
-plugin.activate = function (data) {
-	if (data.id === 'nodebb-plugin-s3-uploads') {
+Plugin.activate = function (data) {
+	if (data.id === `nodebb-plugin-${constants.codename}`) {
 		fetchSettings();
 	}
-
 };
 
-plugin.deactivate = function (data) {
-	if (data.id === 'nodebb-plugin-s3-uploads') {
-		S3Conn = null;
+Plugin.deactivate = function (data) {
+	if (data.id === `nodebb-plugin-${constants.codename}`) {
+		Plugin.s3conn = null;
 	}
 };
 
-plugin.load = function (params, callback) {
-	fetchSettings(function (err) {
-		if (err) {
-			return winston.error(err.message);
-		}
-		var adminRoute = "/admin/plugins/s3-uploads";
+Plugin.uploadImage = function (data, callback) {
 
-		params.router.get(adminRoute, params.middleware.applyCSRF, params.middleware.admin.buildHeader, renderAdmin);
-		params.router.get("/api" + adminRoute, params.middleware.applyCSRF, renderAdmin);
-
-		params.router.post("/api" + adminRoute + "/s3settings", s3settings);
-		params.router.post("/api" + adminRoute + "/credentials", credentials);
-
-		callback();
-	});
-};
-
-function renderAdmin(req, res) {
-	// Regenerate csrf token
-	var token = req.csrfToken();
-
-	var forumPath = nconf.get('url');
-	if(forumPath.split("").reverse()[0] != "/" ){
-		forumPath = forumPath + "/";
-	}
-	var data = {
-		bucket: settings.bucket,
-		host: settings.host,
-		path: settings.path,
-		forumPath: forumPath,
-		region: settings.region,
-		accessKeyId: (accessKeyIdFromDb && settings.accessKeyId) || "",
-		secretAccessKey: (accessKeyIdFromDb && settings.secretAccessKey) || "",
-		csrf: token
-	};
-
-	res.render("admin/plugins/s3-uploads", data);
-}
-
-function s3settings(req, res, next) {
-	var data = req.body;
-	var newSettings = {
-		bucket: data.bucket || "",
-		host: data.host || "",
-		path: data.path || "",
-		region: data.region || ""
-	};
-
-	saveSettings(newSettings, res, next);
-}
-
-function credentials(req, res, next) {
-	var data = req.body;
-	var newSettings = {
-		accessKeyId: data.accessKeyId || "",
-		secretAccessKey: data.secretAccessKey || ""
-	};
-
-	saveSettings(newSettings, res, next);
-}
-
-function saveSettings(settings, res, next) {
-	db.setObject(Package.name, settings, function (err) {
-		if (err) {
-			return next(makeError(err));
-		}
-
-		fetchSettings();
-		res.json("Saved!");
-	});
-}
-
-plugin.uploadImage = function (data, callback) {
 	var image = data.image;
-
 	if (!image) {
-		winston.error("invalid image" );
-		return callback(new Error("invalid image"));
+		winston.error("Invalid image");
+		return callback(new Error("Invalid image"));
 	}
 
-	//check filesize vs. settings
-	if (image.size > parseInt(meta.config.maximumFileSize, 10) * 1024) {
-		winston.error("error:file-too-big, " + meta.config.maximumFileSize );
-		return callback(new Error("[[error:file-too-big, " + meta.config.maximumFileSize + "]]"));
-	}
+	checkMaximumSize(image.size);
 
 	var type = image.url ? "url" : "file";
+	var path = type === "file" ? image.path : image.url;
 	var allowedMimeTypes = ['image/png', 'image/jpeg', 'image/gif'];
 
-	if (type === "file") {
-		if (!image.path) {
-			return callback(new Error("invalid image path"));
-		}
-
-		if (allowedMimeTypes.indexOf(mime.lookup(image.path)) === -1) {
-			return callback(new Error("invalid mime type"));
-		}
-
-		fs.readFile(image.path, function (err, buffer) {
-			uploadToS3(image.name, err, buffer, callback);
-		});
+	if (!path) {
+		return callback(new Error("invalid image path"));
 	}
-	else {
-		if (allowedMimeTypes.indexOf(mime.lookup(image.url)) === -1) {
-			return callback(new Error("invalid mime type"));
-		}
-		var filename = image.url.split("/").pop();
 
-		var imageDimension = parseInt(meta.config.profileImageDimension, 10) || 128;
-
-		// Resize image.
-		im(request(image.url), filename)
-			.resize(imageDimension + "^", imageDimension + "^")
-			.stream(function (err, stdout, stderr) {
-				if (err) {
-					return callback(makeError(err));
-				}
-
-				// This is sort of a hack - We"re going to stream the gm output to a buffer and then upload.
-				// See https://github.com/aws/aws-sdk-js/issues/94
-				var buf = new Buffer(0);
-				stdout.on("data", function (d) {
-					buf = Buffer.concat([buf, d]);
-				});
-				stdout.on("end", function () {
-					uploadToS3(filename, null, buf, callback);
-				});
-			});
+	if (allowedMimeTypes.indexOf(mime.lookup(path)) === -1) {
+		return callback(new Error("invalid mime type"));
 	}
+
+	fs.readFile(path, function (err, buffer) {
+		uploadToS3(image.name, err, buffer, callback);
+	});
 };
 
-plugin.uploadFile = function (data, callback) {
+Plugin.uploadFile = function (data, callback) {
+
 	var file = data.file;
 
 	if (!file) {
@@ -274,32 +106,94 @@ plugin.uploadFile = function (data, callback) {
 		return callback(new Error("invalid file path"));
 	}
 
-	//check filesize vs. settings
-	if (file.size > parseInt(meta.config.maximumFileSize, 10) * 1024) {
-		winston.error("error:file-too-big, " + meta.config.maximumFileSize );
-		return callback(new Error("[[error:file-too-big, " + meta.config.maximumFileSize + "]]"));
-	}
+	checkMaximumSize(file.size);
 
 	fs.readFile(file.path, function (err, buffer) {
 		uploadToS3(file.name, err, buffer, callback);
 	});
 };
+// #endregion Plugin
+
+// #region Plugin Utils
+function checkMaximumSize(size) {
+	if (size > parseInt(meta.config.maximumFileSize, 10) * 1024) {
+		winston.error("error:file-too-big, " + meta.config.maximumFileSize);
+		return callback(new Error("[[error:file-too-big, " + meta.config.maximumFileSize + "]]"));
+	}
+}
+
+function loadSettings(callback) {
+	meta.settings.get(constants.codename, function (err, loadedSettings) {
+		if (err) {
+			return callback(makeError(err));
+		}
+
+		if (loadedSettings.accessKeyId) {
+			Plugin.settings.accessKeyId = loadedSettings.accessKeyId;
+		}
+		if (loadedSettings.secretAccessKey) {
+			Plugin.settings.secretAccessKey = loadedSettings.secretAccessKey;
+		}
+
+		Plugin.settings.bucket = loadedSettings.bucket || process.env.S3_UPLOADS_BUCKET || "";
+		Plugin.settings.host = loadedSettings.host || process.env.S3_UPLOADS_HOST || "";
+		Plugin.settings.path = loadedSettings.path || process.env.S3_UPLOADS_PATH || "";
+		Plugin.settings.region = loadedSettings.region || process.env.AWS_DEFAULT_REGION || "";
+
+		if (Plugin.settings.accessKeyId && Plugin.settings.secretAccessKey) {
+			AWS.config.update({
+				accessKeyId: Plugin.settings.accessKeyId,
+				secretAccessKey: Plugin.settings.secretAccessKey
+			});
+		}
+
+		if (Plugin.settings.region) {
+			AWS.config.update({
+				region: Plugin.settings.region
+			});
+		}
+
+		console.log(Plugin.settings);
+
+		callback();
+	});
+}
+
+function S3() {
+	if (!Plugin.s3conn) {
+		Plugin.s3conn = new AWS.S3();
+	}
+
+	return Plugin.s3conn;
+}
+
+function makeError(err) {
+	if (err instanceof Error) {
+		err.message = constants.codename + " :: " + err.message;
+	} else {
+		err = new Error(constants.codename + " :: " + err);
+	}
+
+	winston.error(err.message);
+	return err;
+}
 
 function uploadToS3(filename, err, buffer, callback) {
 	if (err) {
 		return callback(makeError(err));
 	}
 
+	var settings = Plugin.settings;
+
 	var s3Path;
-	if (settings.path && 0 < settings.path.length) {
+	if (settings.path && settings.path.length > 0) {
 		s3Path = settings.path;
 
 		if (!s3Path.match(/\/$/)) {
 			// Add trailing slash
 			s3Path = s3Path + "/";
 		}
-	}
-	else {
+	} else {
 		s3Path = "/";
 	}
 
@@ -320,8 +214,8 @@ function uploadToS3(filename, err, buffer, callback) {
 		}
 
 		// amazon has https enabled, we use it by default
-		var host = "https://" + params.Bucket +".s3.amazonaws.com";
-		if (settings.host && 0 < settings.host.length) {
+		var host = "https://" + params.Bucket + ".s3.amazonaws.com";
+		if (settings.host && settings.host.length > 0) {
 			host = settings.host;
 			// host must start with http or https
 			if (!host.startsWith("http")) {
@@ -335,17 +229,6 @@ function uploadToS3(filename, err, buffer, callback) {
 		});
 	});
 }
+// #endregion Plugin Utils
 
-var admin = plugin.admin = {};
-
-admin.menu = function (custom_header, callback) {
-	custom_header.plugins.push({
-		"route": "/plugins/s3-uploads",
-		"icon": "fa-envelope-o",
-		"name": "S3 Uploads"
-	});
-
-	callback(null, custom_header);
-};
-
-module.exports = plugin;
+module.exports = Plugin;
