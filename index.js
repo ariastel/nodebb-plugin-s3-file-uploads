@@ -170,9 +170,9 @@ function S3() {
 
 function makeError(err) {
 	if (err instanceof Error) {
-		err.message = constants.codename + " :: " + err.message;
+		err.message = 'Error during uploading' + " - " + err.message;
 	} else {
-		err = new Error(constants.codename + " :: " + err);
+		err = new Error('Error during uploading' + " - " + err);
 	}
 
 	winston.error(err.message);
