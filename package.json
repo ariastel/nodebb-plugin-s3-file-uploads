@@ -1,14 +1,14 @@
 {
-  "name": "nodebb-plugin-s3-uploads-updated",
-  "version": "0.3.15",
-  "description": "A plugin for NodeBB to take file uploads and store them on S3 updated for 1.0",
+  "name": "nodebb-plugin-s3-file-uploads",
+  "version": "1.0.0",
+  "description": "A plugin for NodeBB to take file uploads and store them on S3",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "eslint ."
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/louiseMcMahon/nodebb-plugin-s3-uploads.git"
+    "url": "https://github.com/ariastel/nodebb-plugin-s3-file-uploads.git"
   },
   "keywords": [
     "nodebb",
@@ -21,20 +21,22 @@
   "contributors": [
     "Barış Soner Uşaklı <barisusakli@gmail.com>",
     "Joseph Chen <joseph.chen@gmail.com>",
-    "louise McMahon <louise@louisemcmahon.co.uk>"
+    "louise McMahon <louise@louisemcmahon.co.uk>",
+    "Antosik <grig_anton96@mail.ru>"
   ],
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/louiseMcMahon/nodebb-plugin-s3-uploads/issues"
+    "url": "https://github.com/ariastel/nodebb-plugin-s3-file-uploads/issues"
   },
   "nbbpm": {
-    "compatibility": "^1.5.0"
+    "compatibility": "^1.16.1"
   },
   "dependencies": {
     "aws-sdk": "^2.0.23",
-    "uuid": "~1.4.1",
-    "mime": "~1.2.11",
-    "request": "~2.69.0",
-    "gm": "~1.21.1"
+    "mime": "^2.4.7",
+    "uuid": "^1.4.1"
+  },
+  "devDependencies": {
+    "eslint": "^7.17.0"
   }
 }
