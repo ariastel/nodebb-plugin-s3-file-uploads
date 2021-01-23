@@ -1,6 +1,6 @@
 {
-  "name": "nodebb-plugin-s3-file-uploads",
-  "version": "1.0.0",
+  "name": "@ariastel/nodebb-plugin-s3-file-uploads",
+  "version": "1.0.1",
   "description": "A plugin for NodeBB to take file uploads and store them on S3",
   "main": "index.js",
   "scripts": {
@@ -22,14 +22,15 @@
     "Barış Soner Uşaklı <barisusakli@gmail.com>",
     "Joseph Chen <joseph.chen@gmail.com>",
     "louise McMahon <louise@louisemcmahon.co.uk>",
-    "Antosik <grig_anton96@mail.ru>"
+    "Antosik <grig_anton96@mail.ru>",
+    "Ariastel Team <ariastel@iamantosik.me> (https://github.com/ariastel)"
   ],
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/ariastel/nodebb-plugin-s3-file-uploads/issues"
   },
   "nbbpm": {
-    "compatibility": "^1.16.1"
+    "compatibility": "^1.16.x"
   },
   "dependencies": {
     "aws-sdk": "^2.0.23",
@@ -38,5 +39,8 @@
   },
   "devDependencies": {
     "eslint": "^7.17.0"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com"
   }
 }

@@ -15,5 +15,6 @@
     "acpScripts": [
         "static/lib/admin.js"
     ],
-    "templates": "templates"
+    "templates": "templates",
+	"settingsRoute": "/admin/plugins/s3-file-uploads"
 }
