@@ -33,12 +33,12 @@
     "compatibility": "^1.16.x"
   },
   "dependencies": {
-    "aws-sdk": "^2.0.23",
-    "mime": "^2.4.7",
-    "uuid": "^1.4.1"
+    "aws-sdk": "^2.875.0",
+    "mime": "^2.5.2",
+    "uuid": "^8.3.2"
   },
   "devDependencies": {
-    "eslint": "^7.17.0"
+    "eslint": "^7.23.0"
   },
   "publishConfig": {
     "registry": "https://npm.pkg.github.com"
