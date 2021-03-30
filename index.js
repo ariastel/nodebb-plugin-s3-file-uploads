@@ -1,16 +1,16 @@
 "use strict";
 
-var AWS = require("aws-sdk"),
-	mime = require("mime"),
-	uuid = require("uuid").v4,
-	fs = require("fs"),
-	path = require("path"),
-	winston = require.main.require("winston"),
-	meta = require.main.require("./src/meta");
+const AWS = require("aws-sdk");
+const mime = require("mime");
+const uuid = require("uuid").v4;
+const fs = require("fs");
+const path = require("path");
+const winston = require.main.require("winston");
+const meta = require.main.require("./src/meta");
 
 
 /* Constants */
-var constants = Object.freeze({
+const constants = Object.freeze({
 	name: 'S3 File Uploads',
 	codename: 's3-file-uploads',
 	admin: {
@@ -21,39 +21,38 @@ var constants = Object.freeze({
 
 
 // #region Plugin
-var Plugin = {
+const Plugin = {
 	settings: {
 		"accessKeyId": process.env.AWS_ACCESS_KEY_ID || undefined,
 		"secretAccessKey": process.env.AWS_SECRET_ACCESS_KEY || undefined,
 		"region": process.env.AWS_DEFAULT_REGION || "us-east-1",
 		"bucket": process.env.S3_UPLOADS_BUCKET || undefined,
 		"host": process.env.S3_UPLOADS_HOST || "s3.amazonaws.com",
-		"path": process.env.S3_UPLOADS_PATH || undefined
+		"path": process.env.S3_UPLOADS_PATH || "/"
 	},
 	s3conn: null
 };
 
-Plugin.init = function (data, callback) {
+Plugin.init = async function (data) {
 
 	function render(req, res) {
-		console.log(`admin/plugins/${constants.codename}`);
 		res.render(`admin/plugins/${constants.codename}`, {});
 	}
 
 	data.router.get(`/admin/plugins/${constants.codename}`, data.middleware.applyCSRF, data.middleware.admin.buildHeader, render);
 	data.router.get(`/api/admin/plugins/${constants.codename}`, data.middleware.applyCSRF, render);
 
-	loadSettings(callback);
-}
+	await loadSettings();
+	return;
+};
 
-Plugin.addAdminNavigation = function (custom_header, callback) {
+Plugin.addAdminNavigation = async function (custom_header) {
 	custom_header.plugins.push({
 		"route": constants.admin.route,
 		"icon": constants.admin.icon,
 		"name": constants.name
 	});
-
-	callback(null, custom_header);
+	return custom_header;
 };
 
 Plugin.activate = function (data) {
@@ -68,55 +67,40 @@ Plugin.deactivate = function (data) {
 	}
 };
 
-Plugin.uploadImage = function (data, callback) {
+Plugin.uploadImage = async function (data) {
 
-	var image = data.image;
-	
 	try {
+		const image = data.image;
 		if (!image) {
-			throw new Error("Invalid image");
+			throw new Error("[[error:invalid-image]]");
 		}
 
 		checkMaximumSize(image.size);
+		const path = getImagePath(image);
+		checkImageMimeType(path);
 
-		var path = image.url ? image.url : image.path;
-		if (!path) {
-			throw new Error("Invalid image path");
-		}
-
-		var allowedMimeTypes = ['image/png', 'image/jpeg', 'image/pjpeg', 'image/jpg', 'image/gif', 'image/svg+xml'];
-		if (allowedMimeTypes.indexOf(mime.getType(path)) === -1) {
-			throw new Error("Invalid mime type");
-		}
-
-		fs.readFile(path, function (err, buffer) {
-			uploadToS3(image.name, err, buffer, callback);
-		});
-	} catch (error) {
-		return callback(error);
+		const buffer = await fs.promises.readFile(path);
+		return await uploadToS3(image.name, buffer);
+	} catch (e) {
+		throw makeError(e);
 	}
 };
 
-Plugin.uploadFile = function (data, callback) {
-
-	var file = data.file;
+Plugin.uploadFile = async function (data) {
 
 	try {
+		const file = data.file;
 		if (!file) {
-			throw new Error("Invalid file");
-		}
-
-		if (!file.path) {
-			throw new Error("Invalid file path");
+			throw new Error("[[error:invalid-file]]");
 		}
 
 		checkMaximumSize(file.size);
+		const path = getFilePath(file);
 
-		fs.readFile(file.path, function (err, buffer) {
-			uploadToS3(file.name, err, buffer, callback);
-		});
-	} catch (error) {
-		return callback(error);
+		const buffer = await fs.promises.readFile(path);
+		return await uploadToS3(file.name, buffer);
+	} catch (e) {
+		throw makeError(e);
 	}
 };
 // #endregion Plugin
@@ -124,15 +108,33 @@ Plugin.uploadFile = function (data, callback) {
 // #region Plugin Utils
 function checkMaximumSize(size) {
 	if (size > parseInt(meta.config.maximumFileSize, 10) * 1024) {
-		throw new Error("[[error:file-too-big, " + meta.config.maximumFileSize + "]]");
+		throw new Error(`[[error:file-too-big, "${meta.config.maximumFileSize}"]]`);
+	}
+}
+function getImagePath(image) {
+	const path = image.url ? image.url : image.path;
+	if (!path) {
+		throw new Error("[[error:invalid-image]]");
+	}
+	return path;
+}
+function getFilePath(file) {
+	if (!file.path) {
+		throw new Error("[[error:invalid-file]]");
+	}
+	return file.path;
+}
+function checkImageMimeType(path) {
+	const allowedMimeTypes = ['image/png', 'image/jpeg', 'image/pjpeg', 'image/jpg', 'image/gif', 'image/svg+xml'];
+	if (allowedMimeTypes.indexOf(mime.getType(path)) === -1) {
+		throw new Error("[[error:invalid-image-extension]]");
 	}
 }
 
-function loadSettings(callback) {
-	meta.settings.get(constants.codename, function (err, loadedSettings) {
-		if (err) {
-			return callback(makeError(err));
-		}
+async function loadSettings() {
+
+	try {
+		const loadedSettings = await meta.settings.get(constants.codename);
 
 		if (loadedSettings.accessKeyId) {
 			Plugin.settings.accessKeyId = loadedSettings.accessKeyId;
@@ -158,42 +160,44 @@ function loadSettings(callback) {
 				region: Plugin.settings.region
 			});
 		}
-
-		if (typeof callback === "function") {
-			callback();
-		}
-	});
+	} catch (e) {
+		throw makeError(e);
+	}
 }
 
+/**
+ * @returns {AWS.S3}
+ */
 function S3() {
 	if (!Plugin.s3conn) {
 		Plugin.s3conn = new AWS.S3();
 	}
-
 	return Plugin.s3conn;
 }
 
+/**
+ * @param {Error | string} err
+ * @returns {Error}
+ */
 function makeError(err) {
 	if (err instanceof Error) {
-		err.message = 'Error during uploading' + " - " + err.message;
+		err.message = `[[s3-uploads:upload-error, ${err.message}]]`;
 	} else {
-		err = new Error('Error during uploading' + " - " + err);
+		err = new Error(`[[s3-uploads:upload-error, ${err.message}]]`);
 	}
-
-	winston.error(err.message);
+	winston.error(`[nodebb-plugin-s3-uploads] ${err.message}`);
 	return err;
 }
 
-function uploadToS3(filename, err, buffer, callback) {
-	if (err) {
-		return callback(makeError(err));
-	}
+/**
+ * @param {string} path
+ * @returns {string}
+ */
+function getS3KeyPath(path) {
 
-	var settings = Plugin.settings;
-
-	var s3Path;
-	if (settings.path && settings.path.length > 0) {
-		s3Path = settings.path;
+	let s3Path;
+	if (path && path.length > 0) {
+		s3Path = path;
 
 		if (!s3Path.match(/\/$/)) {
 			// Add trailing slash
@@ -203,9 +207,15 @@ function uploadToS3(filename, err, buffer, callback) {
 		s3Path = "/";
 	}
 
-	var s3KeyPath = s3Path.replace(/^\//, ""); // S3 Key Path should not start with slash.
+	return s3Path.replace(/^\//, ""); // S3 Key Path should not start with slash.
+}
 
-	var params = {
+async function uploadToS3(filename, buffer) {
+
+	const settings = Plugin.settings;
+	const s3KeyPath = getS3KeyPath(settings.path)
+
+	const params = {
 		Bucket: settings.bucket,
 		ACL: "public-read",
 		Key: s3KeyPath + uuid() + path.extname(filename),
@@ -214,13 +224,11 @@ function uploadToS3(filename, err, buffer, callback) {
 		ContentType: mime.getType(filename)
 	};
 
-	S3().putObject(params, function (err) {
-		if (err) {
-			return callback(makeError(err));
-		}
+	try {
+		await S3().putObject(params).promise();
 
 		// amazon has https enabled, we use it by default
-		var host = "https://" + params.Bucket + ".s3.amazonaws.com";
+		let host = "https://" + params.Bucket + ".s3.amazonaws.com";
 		if (settings.host && settings.host.length > 0) {
 			host = settings.host;
 			// host must start with http or https
@@ -229,11 +237,13 @@ function uploadToS3(filename, err, buffer, callback) {
 			}
 		}
 
-		callback(null, {
+		return {
 			name: filename,
 			url: host + "/" + params.Key
-		});
-	});
+		};
+	} catch (e) {
+		throw makeError(e);
+	}
 }
 // #endregion Plugin Utils
 

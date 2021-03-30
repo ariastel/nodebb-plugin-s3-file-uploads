@@ -16,5 +16,6 @@
         "static/lib/admin.js"
     ],
     "templates": "templates",
+    "languages": "languages",
 	"settingsRoute": "/admin/plugins/s3-file-uploads"
 }
