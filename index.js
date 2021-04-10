@@ -80,7 +80,7 @@ Plugin.uploadImage = async function (data) {
 		checkImageMimeType(path);
 
 		const buffer = await fs.promises.readFile(path);
-		return await uploadToS3(image.name, buffer);
+		return await uploadToS3(image.name, buffer, data.uid);
 	} catch (e) {
 		throw makeError(e);
 	}
@@ -98,7 +98,7 @@ Plugin.uploadFile = async function (data) {
 		const path = getFilePath(file);
 
 		const buffer = await fs.promises.readFile(path);
-		return await uploadToS3(file.name, buffer);
+		return await uploadToS3(file.name, buffer, data.uid);
 	} catch (e) {
 		throw makeError(e);
 	}
@@ -210,18 +210,22 @@ function getS3KeyPath(path) {
 	return s3Path.replace(/^\//, ""); // S3 Key Path should not start with slash.
 }
 
-async function uploadToS3(filename, buffer) {
+async function uploadToS3(filename, buffer, uid) {
 
 	const settings = Plugin.settings;
 	const s3KeyPath = getS3KeyPath(settings.path)
 
+	/** @type {AWS.S3.PutObjectRequest} */
 	const params = {
+		Metadata: {
+			'nodebb-uid': String(uid)
+		},
 		Bucket: settings.bucket,
 		ACL: "public-read",
 		Key: s3KeyPath + uuid() + path.extname(filename),
 		Body: buffer,
 		ContentLength: buffer.length,
-		ContentType: mime.getType(filename)
+		ContentType: `${mime.getType(filename)}; charset=utf-8`
 	};
 
 	try {
