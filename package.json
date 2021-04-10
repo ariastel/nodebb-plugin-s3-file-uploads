@@ -1,6 +1,6 @@
 {
   "name": "@ariastel/nodebb-plugin-s3-file-uploads",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "A plugin for NodeBB to take file uploads and store them on S3",
   "main": "index.js",
   "scripts": {
